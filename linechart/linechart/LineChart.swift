@@ -17,13 +17,19 @@ func - (left: Array<CGFloat>, right: Array<CGFloat>) -> Array<CGFloat> {
 }
 
 
-
 // delegate method
 @objc protocol LineChartDelegate {
     func didSelectDataPoint(x: CGFloat, yValues: Array<CGFloat>)
+    optional func plotLabelForX(index: Int) -> String
+    optional func plotLabelForY(index: Int) -> String
 }
 
+enum Axis {
+    case x
+    case y
+}
 
+typealias PlotLabelForAxis = (axis: Axis, index: Int) -> String
 
 // LineChart class
 class LineChart: UIControl {
@@ -39,6 +45,7 @@ class LineChart: UIControl {
     var numberOfGridLinesY: CGFloat = 10
     var animationEnabled = true
     var animationDuration: CFTimeInterval = 1
+    var plotLabelForAxis: PlotLabelForAxis?
     
     var dotsBackgroundColor = UIColor.whiteColor()
     
@@ -176,8 +183,6 @@ class LineChart: UIControl {
         return UIColor(red: red, green: green, blue: blue, alpha: 1)
     }
     
-    
-    
     /**
     * Lighten color.
     */
@@ -253,8 +258,6 @@ class LineChart: UIControl {
         var roundedDividend = Int(round(Double(dividend)))
         return roundedDividend
     }
-    
-    
     
     /**
     * Highlight data points at index.
@@ -479,8 +482,6 @@ class LineChart: UIControl {
         
     }
     
-    
-    
     /**
     * Draw x grid.
     */
@@ -494,7 +495,6 @@ class LineChart: UIControl {
         }
         CGContextStrokePath(context)
     }
-    
     
     
     /**
@@ -514,7 +514,6 @@ class LineChart: UIControl {
     }
     
     
-    
     /**
     * Draw grid.
     */
@@ -522,8 +521,6 @@ class LineChart: UIControl {
         drawXGrid()
         drawYGrid()
     }
-    
-    
     
     /**
     * Draw x labels.
@@ -535,12 +532,17 @@ class LineChart: UIControl {
             var label = UILabel(frame: CGRect(x: scaledValue + (axisInset/2), y: self.bounds.height-axisInset, width: axisInset, height: axisInset))
             label.font = UIFont.systemFontOfSize(10)
             label.textAlignment = NSTextAlignment.Center
-            label.text = String(index)
+            
+            let labelTextAndSizeToFit = labelTextForAxis(Axis.x, index: index)
+            label.text = labelTextAndSizeToFit.0//String(index)
+
+            if labelTextAndSizeToFit.1 == true {
+                label.sizeToFit()
+            }
+            
             self.addSubview(label)
         }
     }
-    
-    
     
     /**
     * Draw y labels.
@@ -555,13 +557,51 @@ class LineChart: UIControl {
             var label = UILabel(frame: CGRect(x: 0, y: yValue, width: axisInset, height: axisInset))
             label.font = UIFont.systemFontOfSize(10)
             label.textAlignment = NSTextAlignment.Center
-            label.text = String(index)
+            
+            let labelTextAndSizeToFit = labelTextForAxis(Axis.y, index: index)
+            label.text = labelTextAndSizeToFit.0 //String(index)
+            if labelTextAndSizeToFit.1 == true {
+                label.sizeToFit()
+            }
+            
             self.addSubview(label)
         }
     }
-    
-    
-    
+
+    func labelTextForAxis(axis: Axis, index: Int) -> (String, Bool) {
+        
+        var text = String(index)
+        var sizeToFit = false
+        if let plotLabelForAxis = plotLabelForAxis as PlotLabelForAxis? {
+        
+            text = plotLabelForAxis(axis: axis, index: index)
+            sizeToFit = true
+        } else {
+            
+            if let delegate = delegate as LineChartDelegate? {
+            
+                switch axis {
+                
+                case .x:
+                    
+                    if let xPlot = delegate.plotLabelForX!(index) as String? {
+                        text = xPlot
+                        sizeToFit = true
+                    }
+                    
+                case .y:
+                    
+                    if let yPlot = delegate.plotLabelForY!(index) as String? {
+                        text = yPlot
+                        sizeToFit = true
+                    }
+                }
+            }
+        }
+        
+        return (text, sizeToFit)
+    }
+
     /**
     * Add line chart
     */

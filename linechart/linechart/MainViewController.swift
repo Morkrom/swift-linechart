@@ -3,8 +3,6 @@ import UIKit
 import QuartzCore
 
 class MainViewController: UIViewController, LineChartDelegate {
-
-    
     
     var label = UILabel()
     var lineChart: LineChart?
@@ -40,8 +38,6 @@ class MainViewController: UIViewController, LineChartDelegate {
         
     }
     
-    
-    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }
@@ -55,7 +51,14 @@ class MainViewController: UIViewController, LineChartDelegate {
         label.text = "x: \(x)     y: \(yValues)"
     }
     
+    func plotLabelForX(index: Int) -> String {
+        return String(index)
+    }
     
+    func plotLabelForY(index: Int) -> String {
+        return String(index)
+    }
+
     
     /**
      * Redraw chart on device rotation.
