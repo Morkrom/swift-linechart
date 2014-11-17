@@ -29,7 +29,7 @@ enum Axis {
     case y
 }
 
-typealias PlotLabelForAxis = (axis: Axis, index: Int) -> String
+typealias PlotLabelForAxis = (axis: Axis, index: Int) -> (text: String, degreesRotated: CGFloat)
 
 // LineChart class
 class LineChart: UIControl {
@@ -40,6 +40,9 @@ class LineChart: UIControl {
     var dotsVisible = true
     var labelsXVisible = false
     var labelsYVisible = false
+    var xLabelPercentOffsetFromCenter: CGFloat = 0
+    var yLabelPercentOffsetFromCenter: CGFloat = 0
+
     var areaUnderLinesVisible = false
     var numberOfGridLinesX: CGFloat = 10
     var numberOfGridLinesY: CGFloat = 10
@@ -348,10 +351,9 @@ class LineChart: UIControl {
                 maximum = newMaximum
             }
         }
+    
         return CGFloat(maximum)
     }
-    
-    
     
     /**
     * Scale to fit drawing width.
@@ -510,6 +512,7 @@ class LineChart: UIControl {
             CGContextMoveToPoint(context, axisInset, self.bounds.height - (CGFloat(index) * height) - axisInset)
             CGContextAddLineToPoint(context, self.bounds.width - axisInset, self.bounds.height - (CGFloat(index) * height) - axisInset)
         }
+        
         CGContextStrokePath(context)
     }
     
@@ -532,15 +535,57 @@ class LineChart: UIControl {
             var label = UILabel(frame: CGRect(x: scaledValue + (axisInset/2), y: self.bounds.height-axisInset, width: axisInset, height: axisInset))
             label.font = UIFont.systemFontOfSize(10)
             label.textAlignment = NSTextAlignment.Center
-            
+            label.lineBreakMode = NSLineBreakMode.ByWordWrapping
+            label.numberOfLines = 0
             let labelTextAndSizeToFit = labelTextForAxis(Axis.x, index: index)
             label.text = labelTextAndSizeToFit.0//String(index)
-
-            if labelTextAndSizeToFit.1 == true {
-                label.sizeToFit()
-            }
+            
+            applyDimensionsToLabel(
+            
+                label,
+                labelTextAndScale: labelTextAndSizeToFit,
+                offset: xLabelPercentOffsetFromCenter,
+                axis: Axis.x
+            )
+     
             
             self.addSubview(label)
+        }
+    }
+    
+    func degreesToRad(deg: CGFloat) -> CGFloat {
+        
+        return deg / (180 * CGFloat(M_PI))
+        
+    }
+    
+    func radToDeg(rad: CGFloat) -> CGFloat {
+        
+        return (rad * (180 / CGFloat(M_PI)) )
+    }
+
+    func applyDimensionsToLabel(label: UILabel, labelTextAndScale: (String, Bool, CGFloat), offset: CGFloat, axis: Axis) {
+        
+        if labelTextAndScale.1 == true {
+            
+            let labelSize = label.text?.sizeWithAttributes([NSFontAttributeName: label.font]) as CGSize?            
+            let width = labelSize?.width
+            let height = labelSize?.height
+            let x = axis == .x ? label.frame.origin.x - (width! * offset) : label.frame.origin.x
+            let y = axis == .y ? label.frame.origin.y - (height! * offset) : label.frame.origin.y
+
+            label.frame = CGRectMake(
+                
+                x,
+                y,
+                width!,
+                height!
+            )
+            
+            let rads = degreesToRad(labelTextAndScale.2)
+            let tr: CGAffineTransform = CGAffineTransformMakeRotation(rads)
+            
+            label.transform = tr
         }
     }
     
@@ -557,25 +602,38 @@ class LineChart: UIControl {
             var label = UILabel(frame: CGRect(x: 0, y: yValue, width: axisInset, height: axisInset))
             label.font = UIFont.systemFontOfSize(10)
             label.textAlignment = NSTextAlignment.Center
-            
+            label.numberOfLines = 0
+            label.lineBreakMode = NSLineBreakMode.ByWordWrapping
             let labelTextAndSizeToFit = labelTextForAxis(Axis.y, index: index)
             label.text = labelTextAndSizeToFit.0 //String(index)
-            if labelTextAndSizeToFit.1 == true {
-                label.sizeToFit()
-            }
+            
+            applyDimensionsToLabel(
+            
+                label,
+                labelTextAndScale: labelTextAndSizeToFit,
+                offset: yLabelPercentOffsetFromCenter,
+                axis: Axis.y
+            
+            )
             
             self.addSubview(label)
         }
     }
 
-    func labelTextForAxis(axis: Axis, index: Int) -> (String, Bool) {
+    func labelTextForAxis(axis: Axis, index: Int) -> (String, Bool, CGFloat) {
         
         var text = String(index)
         var sizeToFit = false
+        var rotationDegrees: CGFloat = 0
+        
         if let plotLabelForAxis = plotLabelForAxis as PlotLabelForAxis? {
         
-            text = plotLabelForAxis(axis: axis, index: index)
+            let plotLabelForAxis = plotLabelForAxis(axis: axis, index: index)
+            text = plotLabelForAxis.0
+            rotationDegrees = plotLabelForAxis.1
+            
             sizeToFit = true
+            
         } else {
             
             if let delegate = delegate as LineChartDelegate? {
@@ -583,7 +641,7 @@ class LineChart: UIControl {
                 switch axis {
                 
                 case .x:
-                    
+
                     if let xPlot = delegate.plotLabelForX!(index) as String? {
                         text = xPlot
                         sizeToFit = true
@@ -599,7 +657,7 @@ class LineChart: UIControl {
             }
         }
         
-        return (text, sizeToFit)
+        return (text, sizeToFit, rotationDegrees)
     }
 
     /**
